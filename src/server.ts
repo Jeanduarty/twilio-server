@@ -2,7 +2,8 @@ import dotenv from "dotenv";
 import express from "express";
 import twilio from "twilio";
 import cors from "cors";
-import { z } from "zod";
+import { firebaseApp } from "./firebase";
+import { getDatabase, onValue, ref, update } from "firebase/database";
 
 dotenv.config();
 const app = express();
@@ -10,39 +11,57 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const client = twilio(
+const client = twilio( // <== FUNÇÃO PARA CONECTAR O TWILIO!
   process.env.TWILIO_ACCOUNT_SID,
   process.env.TWILIO_AUTH_TOKEN
 );
 
+firebaseApp(); //<== FUNÇÃO PARA INICAR O FIREBASE CONFIGURADO!
+const database = getDatabase();
+onValue(ref(database, `dispositivos`), (snapshot) => {
+  const currentHour = new Date().getHours();
+
+  if (snapshot.exists()) {
+    snapshot.forEach((item) => {
+      // ESSE IF É PARA RESETAR A NOTIFICAÇÃO
+      if (item.val()?.ultimoStatus === "desligado" && item.val()?.isNotified) {
+        update(ref(database, `dispositivos/${item.key}`,), {
+          isNotified: false
+        })
+      }
+
+      // ESSE IF É A LOGICA PARA ENVIAR A NOTIFICAÇÃO CASO O AR CONDICIONADO ESTEJA FORA DO INTERVALO!
+      if (
+        (currentHour < item.val()?.interval?.start ||
+          currentHour >= item.val()?.interval?.end) &&
+        item.val()?.ultimoStatus === "ligado" &&
+        !item.val()?.isNotified
+      ) {
+        const textMessage = {
+          body: `O AR CONDICIONADO "${item.key}" ESTÁ LIGADO FORA DO INTERVALO! FAVOR, DESLIGUE-O`,
+          from: process.env.TWILIO_PHONE_NUMBER,
+          to: item.val()?.phone,
+        };
+
+        // É AQUI QUE ENVIA A MENSAGEM PARA O USUÁRIO 
+        client.messages
+          .create(textMessage)
+          .then(() => {
+            update(ref(database, `dispositivos/${item.key}`,), {
+              isNotified: true
+            })
+            console.log("Enviado com sucesso!")
+          });
+      }
+    });
+  }
+});
+
 app.get("/", (request, response) => {
-  console.log('home');
+  console.log("home");
   return response.send("Bem vindo ao meu servidor!");
 });
 
-app.post("/sms", async (request, response) => {
-  const createUserSchema = z.object({
-    phoneNumber: z.string(),
-    message: z.string(),
-  });
-
-  const { phoneNumber, message } = createUserSchema.parse(request.body);
-  //phoneNumber precisa estar no formato por ex: +5533999999999
-
-  try {
-    const textMessage = {
-      body: message,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to: phoneNumber,
-    };
-
-    await client.messages.create(textMessage);
-  } catch (error) {
-    console.log(error);
-  }
-
-  return response.status(201).send();
-});
 
 const PORT = process.env.PORT || "3000";
 
