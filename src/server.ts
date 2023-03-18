@@ -21,6 +21,8 @@ firebaseApp(); //<== FUNÇÃO PARA INICAR O FIREBASE CONFIGURADO!
 const database = getDatabase();
 onValue(ref(database, `dispositivos`), (snapshot) => {
   const currentHour = new Date().getHours();
+  console.log('dentro do onValue');
+  
 
   if (snapshot.exists()) {
     snapshot.forEach((item) => {

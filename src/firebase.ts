@@ -13,7 +13,6 @@ const firebaseConfig = {
 // Initialize Firebase
 export function firebaseApp(){
   const database = firebase.initializeApp(firebaseConfig);
-  console.log('database => ', database);
 
   return database;
 }
