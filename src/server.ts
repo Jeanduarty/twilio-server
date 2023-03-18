@@ -19,12 +19,10 @@ const client = twilio(
 
 const database = getDatabase(firebaseApp()); //<== FUNÇÃO PARA INICAR O FIREBASE CONFIGURADO!
 
-onValue(ref(database, `dispositivos`), (snapshot) => {
-  setTimeout(() => {
+setTimeout(() => {
+  onValue(ref(database, `dispositivos`), (snapshot) => {
     const currentHour = new Date().getHours();
-    console.log(snapshot.val());
-
-
+  
     if (snapshot.exists()) {
       snapshot.forEach((item) => {
         // ESSE IF É PARA RESETAR A NOTIFICAÇÃO
@@ -33,7 +31,7 @@ onValue(ref(database, `dispositivos`), (snapshot) => {
             isNotified: false,
           }).then(() => console.log("change flag to false sucess!"));
         }
-
+  
         // ESSE IF É A LOGICA PARA ENVIAR A NOTIFICAÇÃO CASO O AR CONDICIONADO ESTEJA FORA DO INTERVALO!
         if (
           (currentHour < item.val()?.interval?.start ||
@@ -46,7 +44,7 @@ onValue(ref(database, `dispositivos`), (snapshot) => {
             from: process.env.TWILIO_PHONE_NUMBER,
             to: item.val()?.phone,
           };
-
+  
           // É AQUI QUE ENVIA A MENSAGEM PARA O USUÁRIO
           client.messages.create(textMessage).then(async () => {
             await update(ref(database, `dispositivos/${item.key}`), {
@@ -56,8 +54,8 @@ onValue(ref(database, `dispositivos`), (snapshot) => {
         }
       });
     }
-  }, 5000);
-});
+  });
+}, 5000);
 
 app.get("/", (request, response) => {
   console.log("home");
