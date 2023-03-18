@@ -11,23 +11,24 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const client = twilio( // <== FUNÇÃO PARA CONECTAR O TWILIO!
+const client = twilio(
+  // <== FUNÇÃO PARA CONECTAR O TWILIO!
   process.env.TWILIO_ACCOUNT_SID,
   process.env.TWILIO_AUTH_TOKEN
 );
 
 firebaseApp(); //<== FUNÇÃO PARA INICAR O FIREBASE CONFIGURADO!
 const database = getDatabase();
-onValue(ref(database, `dispositivos`), (snapshot) => {
+onValue(ref(database, `dispositivos`), async (snapshot) => {
   const currentHour = new Date().getHours();
 
   if (snapshot.exists()) {
-    snapshot.forEach((item) => {
+    await snapshot.forEach((item) => {
       // ESSE IF É PARA RESETAR A NOTIFICAÇÃO
       if (item.val()?.ultimoStatus === "desligado" && item.val()?.isNotified) {
-        update(ref(database, `dispositivos/${item.key}`,), {
-          isNotified: false
-        })
+        update(ref(database, `dispositivos/${item.key}`), {
+          isNotified: false,
+        });
       }
 
       // ESSE IF É A LOGICA PARA ENVIAR A NOTIFICAÇÃO CASO O AR CONDICIONADO ESTEJA FORA DO INTERVALO!
@@ -43,15 +44,12 @@ onValue(ref(database, `dispositivos`), (snapshot) => {
           to: item.val()?.phone,
         };
 
-        // É AQUI QUE ENVIA A MENSAGEM PARA O USUÁRIO 
-        client.messages
-          .create(textMessage)
-          .then(() => {
-            update(ref(database, `dispositivos/${item.key}`,), {
-              isNotified: true
-            })
-            console.log("Enviado com sucesso!")
-          });
+        // É AQUI QUE ENVIA A MENSAGEM PARA O USUÁRIO
+        client.messages.create(textMessage).then(async () => {
+          await update(ref(database, `dispositivos/${item.key}`), {
+            isNotified: true,
+          }).then(() => console.log("Enviado com sucesso!"));
+        });
       }
     });
   }
@@ -61,7 +59,6 @@ app.get("/", (request, response) => {
   console.log("home");
   return response.send("Bem vindo ao meu servidor!");
 });
-
 
 const PORT = process.env.PORT || "3000";
 
