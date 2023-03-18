@@ -19,16 +19,18 @@ const client = twilio(
 
 firebaseApp(); //<== FUNÇÃO PARA INICAR O FIREBASE CONFIGURADO!
 const database = getDatabase();
-onValue(ref(database, `dispositivos`), async (snapshot) => {
+onValue(ref(database, `dispositivos`), (snapshot) => {
   const currentHour = new Date().getHours();
 
   if (snapshot.exists()) {
-    await snapshot.forEach((item) => {
+    snapshot.forEach((item) => {
       // ESSE IF É PARA RESETAR A NOTIFICAÇÃO
       if (item.val()?.ultimoStatus === "desligado" && item.val()?.isNotified) {
-        update(ref(database, `dispositivos/${item.key}`), {
-          isNotified: false,
-        });
+        async () => {
+          await update(ref(database, `dispositivos/${item.key}`), {
+            isNotified: false,
+          }).then(() => console.log("change flag to false sucess!"));
+        };
       }
 
       // ESSE IF É A LOGICA PARA ENVIAR A NOTIFICAÇÃO CASO O AR CONDICIONADO ESTEJA FORA DO INTERVALO!
