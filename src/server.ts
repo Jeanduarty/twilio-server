@@ -3,13 +3,14 @@ import express from "express";
 import twilio from "twilio";
 import cors from "cors";
 import { firebaseApp } from "./firebase";
-import { getDatabase, onValue, ref, update } from "firebase/database";
+import { getDatabase, onChildChanged, onValue, ref, update } from "firebase/database";
 
 dotenv.config();
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+
 
 const client = twilio(
   // <== FUNÇÃO PARA CONECTAR O TWILIO!
@@ -19,18 +20,24 @@ const client = twilio(
 
 const database = getDatabase(firebaseApp()); //<== FUNÇÃO PARA INICAR O FIREBASE CONFIGURADO!
 
-onValue(ref(database, `dispositivos`), (snapshot) => {
+async function sendMessage(textMessage: any, key: any) {
+  await client.messages.create(textMessage).then(() => {
+    update(ref(database, `dispositivos/${key}`), {
+      isNotified: true,
+    }).then(() => console.log("Enviado com sucesso!"));
+  });
+}
+
+onValue(ref(database, `dispositivos`), async (snapshot) => {
   const currentHour = new Date().getHours();
 
   if (snapshot.exists()) {
-    snapshot.forEach((item) => {
+    await snapshot.forEach((item) => {
       // ESSE IF É PARA RESETAR A NOTIFICAÇÃO
       if (item.val()?.ultimoStatus === "desligado" && item.val()?.isNotified) {
-        async () => {
-          await update(ref(database, `dispositivos/${item.key}`), {
-            isNotified: false,
-          }).then(() => console.log("change flag to false sucess!"));
-        }
+        update(ref(database, `dispositivos/${item.key}`), {
+          isNotified: false,
+        }).then(() => console.log("change flag to false sucess!"));
       }
 
       // ESSE IF É A LOGICA PARA ENVIAR A NOTIFICAÇÃO CASO O AR CONDICIONADO ESTEJA FORA DO INTERVALO!
@@ -47,11 +54,7 @@ onValue(ref(database, `dispositivos`), (snapshot) => {
         };
 
         // É AQUI QUE ENVIA A MENSAGEM PARA O USUÁRIO
-        client.messages.create(textMessage).then(async () => {
-          await update(ref(database, `dispositivos/${item.key}`), {
-            isNotified: true,
-          }).then(() => console.log("Enviado com sucesso!"));
-        });
+        sendMessage(textMessage, item.key);
       }
     });
   }
