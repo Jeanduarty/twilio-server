@@ -19,43 +19,43 @@ const client = twilio(
 
 const database = getDatabase(firebaseApp()); //<== FUNÇÃO PARA INICAR O FIREBASE CONFIGURADO!
 
-setTimeout(() => {
-  onValue(ref(database, `dispositivos`), (snapshot) => {
-    const currentHour = new Date().getHours();
-  
-    if (snapshot.exists()) {
-      snapshot.forEach((item) => {
-        // ESSE IF É PARA RESETAR A NOTIFICAÇÃO
-        if (item.val()?.ultimoStatus === "desligado" && item.val()?.isNotified) {
-          update(ref(database, `dispositivos/${item.key}`), {
+onValue(ref(database, `dispositivos`), (snapshot) => {
+  const currentHour = new Date().getHours();
+
+  if (snapshot.exists()) {
+    snapshot.forEach((item) => {
+      // ESSE IF É PARA RESETAR A NOTIFICAÇÃO
+      if (item.val()?.ultimoStatus === "desligado" && item.val()?.isNotified) {
+        async () => {
+          await update(ref(database, `dispositivos/${item.key}`), {
             isNotified: false,
           }).then(() => console.log("change flag to false sucess!"));
         }
-  
-        // ESSE IF É A LOGICA PARA ENVIAR A NOTIFICAÇÃO CASO O AR CONDICIONADO ESTEJA FORA DO INTERVALO!
-        if (
-          (currentHour < item.val()?.interval?.start ||
-            currentHour >= item.val()?.interval?.end) &&
-          item.val()?.ultimoStatus === "ligado" &&
-          !item.val()?.isNotified
-        ) {
-          const textMessage = {
-            body: `O AR CONDICIONADO "${item.key}" ESTÁ LIGADO FORA DO INTERVALO! FAVOR, DESLIGUE-O`,
-            from: process.env.TWILIO_PHONE_NUMBER,
-            to: item.val()?.phone,
-          };
-  
-          // É AQUI QUE ENVIA A MENSAGEM PARA O USUÁRIO
-          client.messages.create(textMessage).then(async () => {
-            await update(ref(database, `dispositivos/${item.key}`), {
-              isNotified: true,
-            }).then(() => console.log("Enviado com sucesso!"));
-          });
-        }
-      });
-    }
-  });
-}, 5000);
+      }
+
+      // ESSE IF É A LOGICA PARA ENVIAR A NOTIFICAÇÃO CASO O AR CONDICIONADO ESTEJA FORA DO INTERVALO!
+      if (
+        (currentHour < item.val()?.interval?.start ||
+          currentHour >= item.val()?.interval?.end) &&
+        item.val()?.ultimoStatus === "ligado" &&
+        !item.val()?.isNotified
+      ) {
+        const textMessage = {
+          body: `O AR CONDICIONADO "${item.key}" ESTÁ LIGADO FORA DO INTERVALO! FAVOR, DESLIGUE-O`,
+          from: process.env.TWILIO_PHONE_NUMBER,
+          to: item.val()?.phone,
+        };
+
+        // É AQUI QUE ENVIA A MENSAGEM PARA O USUÁRIO
+        client.messages.create(textMessage).then(async () => {
+          await update(ref(database, `dispositivos/${item.key}`), {
+            isNotified: true,
+          }).then(() => console.log("Enviado com sucesso!"));
+        });
+      }
+    });
+  }
+});
 
 app.get("/", (request, response) => {
   console.log("home");
