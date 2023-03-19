@@ -3,7 +3,13 @@ import express from "express";
 import twilio from "twilio";
 import cors from "cors";
 import { firebaseApp } from "./firebase";
-import { getDatabase, onChildChanged, onValue, ref, update } from "firebase/database";
+import { getDatabase, onValue, ref, update } from "firebase/database";
+
+type sendMessageProps = {
+  body: string;
+  to: string;
+  from: string;
+}
 
 dotenv.config();
 const app = express();
@@ -11,16 +17,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-
+  // CONECTAR O TWILIO!
 const client = twilio(
-  // <== FUNÇÃO PARA CONECTAR O TWILIO!
   process.env.TWILIO_ACCOUNT_SID,
   process.env.TWILIO_AUTH_TOKEN
 );
 
 const database = getDatabase(firebaseApp()); //<== FUNÇÃO PARA INICAR O FIREBASE CONFIGURADO!
 
-async function sendMessage(textMessage: any, key: any) {
+async function sendMessage(textMessage: sendMessageProps, key: any) {
   await client.messages.create(textMessage).then(() => {
     update(ref(database, `dispositivos/${key}`), {
       isNotified: true,
@@ -49,8 +54,8 @@ onValue(ref(database, `dispositivos`), async (snapshot) => {
       ) {
         const textMessage = {
           body: `O AR CONDICIONADO "${item.key}" ESTÁ LIGADO FORA DO INTERVALO! FAVOR, DESLIGUE-O`,
-          from: process.env.TWILIO_PHONE_NUMBER,
-          to: item.val()?.phone,
+          from: process.env.TWILIO_PHONE_NUMBER as string,
+          to: item.val()?.phone as string,
         };
 
         // É AQUI QUE ENVIA A MENSAGEM PARA O USUÁRIO
